@@ -5,7 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="bootstrap" Version="4.5.3" />
+      <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="5.0.1" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.1">
         <PrivateAssets>all</PrivateAssets>
@@ -30,12 +30,12 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Migrations" />
-      <Folder Include="Models" />
+      <None Include="wwwroot\css\signin.css" />
+      <None Include="wwwroot\Index.html" />
     </ItemGroup>
 
     <ItemGroup>
-      <None Include="wwwroot\css\signin.css" />
+      <Content Remove="wwwroot\css\signin.css" />
     </ItemGroup>
 
 </Project>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using MoneyTransferSystem.Database;
+using MoneyTransferSystem.Services;
 
 namespace MoneyTransferSystem
 {
@@ -28,13 +30,16 @@ namespace MoneyTransferSystem
         {
             services.AddMvc();
             ConfigureDatabase(services);
-            services.AddTransient<ICurrencyConverter, CurrencyConverterUseless>();
+            services.AddTransient<ICurrencyConverter, CurrencyConverterCbr>();
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
-                    options.LoginPath = new PathString("/Login/UserLogin");
+                    options.LoginPath = new PathString("/Login/UserLogin");//TODO change login path
                 });
             services.AddAuthorization();
+            services.AddRazorPages();
+            services.AddControllersWithViews().AddNewtonsoftJson(options =>
+                options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -58,13 +63,15 @@ namespace MoneyTransferSystem
 
             app.UseEndpoints(x =>
             {
-                x.MapControllerRoute(
-                    name: "default",
-                    pattern: "{controller=Home}/{action=Index}/{id?}");
+                x.MapGet("/", async context =>
+                {
+                    await context.Response.WriteAsync("🎄 🎄 Hello 🎄 🎄");
+                });
+                x.MapControllers();
             });
         }
-        
-        public void ConfigureDatabase(IServiceCollection services)
+
+        private void ConfigureDatabase(IServiceCollection services)
         {
             services.AddEntityFrameworkNpgsql();
             services.AddDbContext<MyDbContext>((provider, options) => { options.UseNpgsql(Configuration["Database:ConnectionString"]); });
