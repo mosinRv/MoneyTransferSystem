@@ -8,7 +8,7 @@ using MoneyTransferSystem.Database.DbModels;
 
 namespace MoneyTransferSystem.Controllers
 {
-    [Route("api/commission"), Authorize(Roles = "User, Admin")]
+    [Authorize]
     public class CommissionController : Controller
     {
         private const int jsonReturnNumb = 10;
@@ -20,7 +20,7 @@ namespace MoneyTransferSystem.Controllers
         }
 
         #region global rules
-        [HttpGet("global"),]
+        [HttpGet("api/commission/global"),]
         public async Task<IActionResult> GetListGlobal()
         {
             var rules = await _db.GlobalMoneyRules.Take(jsonReturnNumb).Select(r => new
@@ -33,15 +33,16 @@ namespace MoneyTransferSystem.Controllers
             return Json(rules);
         }
         
-        [HttpGet("global/{id}"), Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
+        [HttpGet("api/commission/global/{id}")]
         public async Task<IActionResult> GetGlobal(int id)
         {
             return Json(await _db.GlobalMoneyRules.FirstOrDefaultAsync(r => r.Id == id));
         }
 
         [Authorize(Roles = "Admin")]
-        [HttpPost("addGlobal")]
-        public async Task<IActionResult> CreateCommission([FromBody]GlobalCommission rule)
+        [HttpPost("api/commission/global")]
+        public async Task<IActionResult> CreateGlobalCommission([FromBody]GlobalCommission rule)
         {
             var added=_db.GlobalMoneyRules.Add(rule);
             await _db.SaveChangesAsync();
@@ -49,32 +50,33 @@ namespace MoneyTransferSystem.Controllers
         }
         #endregion
         
-        //-------------------------
+        
         
         #region custom rules
-        [HttpGet("custom")]
+        [HttpGet("api/commission/custom")]
         public async Task<IActionResult> GetListCustom()
         {
             var userId = int.Parse(User.Identity.Name);
-            var rules = await _db.MoneyRules.Where(r => r.UserId == userId).Take(jsonReturnNumb).Select(r => new
-            {
-                Currency = r.CurrencyId,
-                Max = r.Max,
-                Min = r.Min,
-                Comission = r.isCommissionFixed ? r.Commission.ToString() : $"{r.Commission * 100}%"
-            }).ToListAsync();
+            var rules = await _db.MoneyRules.Where(r => r.UserId == userId).Take(jsonReturnNumb)
+                .Select(r => new
+                {
+                    Currency = r.CurrencyId,
+                    Max = r.Max,
+                    Min = r.Min,
+                    Comission = r.isCommissionFixed ? r.Commission.ToString() : $"{r.Commission * 100}%"
+                }).ToListAsync();
             return Json(rules);
         }
         
-        [HttpGet("custom/{id}"), Authorize(Roles = "Admin")]
+        [HttpGet("api/commission/custom/{id}"), Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetCustom(int id)
         {
             return Json(await _db.MoneyRules.FirstOrDefaultAsync(r => r.Id == id));
         }
         
         [Authorize(Roles = "Admin")]
-        [HttpPost("addCustom")]
-        public async Task<IActionResult> CreateUserCommission([FromBody]PersonalCommission rule)
+        [HttpPost("api/commission/custom")]
+        public async Task<IActionResult> CreateCustomCommission([FromBody]PersonalCommission rule)
         {
             var added=_db.MoneyRules.Add(rule);
             await _db.SaveChangesAsync();

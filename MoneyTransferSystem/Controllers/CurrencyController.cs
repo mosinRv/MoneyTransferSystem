@@ -8,47 +8,55 @@ using MoneyTransferSystem.Database.DbModels;
 
 namespace MoneyTransferSystem.Controllers
 {
-    [Route("api/currency")]
+    [Authorize]
     public class CurrencyController : Controller
     {
-        private MyDbContext _db;
+        private MyDbContext _context;
 
-        public CurrencyController(MyDbContext db)
+        public CurrencyController(MyDbContext context)
         {
-            _db = db;
+            _context = context;
         }
 
-        [HttpGet]
+        [HttpGet("api/currency")]
         public async Task<IActionResult> GetCurrency()
         {
-            return Json(await _db.Currencies.Select(x => x).ToListAsync());
+            return Json(await _context.Currencies.Select(x => x).ToListAsync());
         }
-        [HttpGet("{id}")]
+        [HttpGet("api/currency/{id}")]
         public async Task<IActionResult> GetCurrency(int id)
         {
-            return Json(await _db.Currencies.FirstOrDefaultAsync(c => c.Id == id));
+            return Json(await _context.Currencies.FirstOrDefaultAsync(c => c.Id == id));
         }
         
         
-        [HttpPost]
+        [HttpPost("api/currency")]
         public async Task<IActionResult> AddNewCurrency([FromBody] Currency currency)
         {
-            var added=_db.Currencies.Add(currency);
-            await _db.SaveChangesAsync();
+            var added=_context.Currencies.Add(currency);
+            await _context.SaveChangesAsync();
             return CreatedAtRoute(nameof(GetCurrency), new {id = added.Entity.Id}, added.Entity);
         }
         
-        [HttpPut("{id}")]
-        public async Task<IActionResult> TChangeCurrency (int id, Currency currency)
+        [HttpPut("api/currency")]
+        public async Task<IActionResult> ChangeCurrency (int id,[FromBody] Currency currency)
         {
-            Currency oldCurrency = await _db.Currencies.FirstOrDefaultAsync(c => c.Id == id);
+            Currency oldCurrency = await _context.Currencies.FirstOrDefaultAsync(c => c.Id == id);
             if (oldCurrency == null || currency.Name==null || currency.CharCode==null) return BadRequest();
             oldCurrency.Name = currency.Name;
             oldCurrency.CharCode = currency.CharCode;
-            _db.Currencies.Update(oldCurrency);
-            await _db.SaveChangesAsync();
+            _context.Currencies.Update(oldCurrency);
+            await _context.SaveChangesAsync();
             return Ok();
         }
-        
+
+        [HttpDelete("api/currency")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var curr = await _context.Currencies.FirstOrDefaultAsync(c => c.Id == id);
+            _context.Currencies.Remove(curr);
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
     }
 }

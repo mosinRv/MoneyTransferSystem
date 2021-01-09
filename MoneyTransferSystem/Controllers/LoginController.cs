@@ -22,11 +22,7 @@ namespace MoneyTransferSystem.Controllers
         {
             _db = db;
         }
-        public IActionResult UserLogin()
-        {
-            return View();
-        }
-        
+
         [HttpPost("sign-in")]
         public async Task<IActionResult> LogIn(string login, string pass)
         {
@@ -49,7 +45,7 @@ namespace MoneyTransferSystem.Controllers
         public async Task<IActionResult> LogOut()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction("UserLogin", "Login");
+            return Ok(); //RedirectToAction()
         }
 
         [HttpGet("test"), Authorize()]
