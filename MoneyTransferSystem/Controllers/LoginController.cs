@@ -48,7 +48,7 @@ namespace MoneyTransferSystem.Controllers
             return Ok(); //RedirectToAction()
         }
 
-        [HttpGet("test"), Authorize()]
+        [HttpGet("test")]
         public IActionResult TestAuthorization()
         {
             var userId = User.Identity.Name;

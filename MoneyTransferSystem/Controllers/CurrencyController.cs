@@ -8,7 +8,7 @@ using MoneyTransferSystem.Database.DbModels;
 
 namespace MoneyTransferSystem.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class CurrencyController : Controller
     {
         private MyDbContext _context;
@@ -42,7 +42,8 @@ namespace MoneyTransferSystem.Controllers
         public async Task<IActionResult> ChangeCurrency (int id,[FromBody] Currency currency)
         {
             Currency oldCurrency = await _context.Currencies.FirstOrDefaultAsync(c => c.Id == id);
-            if (oldCurrency == null || currency.Name==null || currency.CharCode==null) return BadRequest();
+            if (oldCurrency == null)return NotFound();
+            if (currency.Name==null || currency.CharCode==null) return BadRequest();
             oldCurrency.Name = currency.Name;
             oldCurrency.CharCode = currency.CharCode;
             _context.Currencies.Update(oldCurrency);

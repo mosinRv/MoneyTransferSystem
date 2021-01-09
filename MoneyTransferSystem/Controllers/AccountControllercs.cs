@@ -14,7 +14,7 @@ using MoneyTransferSystem.Services;
 
 namespace MoneyTransferSystem.Controllers
 {
-    [Authorize(Roles = "Admin, User")]
+    [Authorize]
     public class AccountController : Controller
     {
         private readonly MyDbContext _context;
@@ -29,21 +29,21 @@ namespace MoneyTransferSystem.Controllers
         public async Task<JsonResult> GetCurrentUserInfo()
         {
             var userId = int.Parse(User.Identity.Name);
-            var user = await _context.Users.FirstAsync(u => u.Id == userId);
-            user.Accounts = await _context.Accounts.Where(a => a.UserId == userId).ToListAsync();
-
-            var result = new
-            {
-                User = user.Login,
-                Role = user.isAdmin ? "Admin" : "User",
-                Accounts = user.Accounts.Select(async a => new
+            var user = await _context.Users.Where(u => u.Id == userId).Include(u => u.Accounts)
+                .ThenInclude(a => a.Currency).Select(u => new
                 {
-                    Id = a.Id,
-                    Currency = (await _context.Currencies.FirstAsync(c => c.Id == a.CurrencyId)).CharCode,
-                    Money = a.Money
-                })
-            };
-            return Json(result);
+                    User = u.Login,
+                    Role = u.isAdmin ? "Admin" : "User",
+                    Accounts = u.Accounts.Select(a => new
+                    {
+                        Id = a.Id,
+                        CurrencyId = a.CurrencyId,
+                        Currency = a.Currency.CharCode,
+                        Money = a.Money
+                    })
+                }).FirstOrDefaultAsync();
+            
+            return Json(user);
         }
 
         [Authorize(Roles = "Admin")]
@@ -69,7 +69,7 @@ namespace MoneyTransferSystem.Controllers
             var a=_context.Accounts.Add(acc);
             await _context.SaveChangesAsync();
             return CreatedAtRoute("GetAccount", new {id = a.Entity.Id}, a.Entity);
-
+            // Created($"api/account/{a.Entity.Id}", a.Entity);
         }
         
         [HttpPost("api/account/money")]
@@ -196,5 +196,13 @@ namespace MoneyTransferSystem.Controllers
             return Ok();
         }
 
+        [HttpGet("test")]
+        public async Task<IActionResult> Test()
+        {
+            var valute =await _context.Currencies.FirstOrDefaultAsync(c => c.CharCode == "OOO");
+            valute.Name = "asd";
+            valute.MaxTransferSize = 12345;
+            return Json(valute);
+        }
     }
 }
