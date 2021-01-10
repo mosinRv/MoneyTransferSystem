@@ -23,7 +23,7 @@ namespace MoneyTransferSystem.Controllers
         {
             return Json(await _context.Currencies.Select(x => x).ToListAsync());
         }
-        [HttpGet("api/currency/{id}")]
+        [HttpGet("api/currency/{id}", Name = "GetCurrency")]
         public async Task<IActionResult> GetCurrency(int id)
         {
             return Json(await _context.Currencies.FirstOrDefaultAsync(c => c.Id == id));
@@ -35,7 +35,7 @@ namespace MoneyTransferSystem.Controllers
         {
             var added=_context.Currencies.Add(currency);
             await _context.SaveChangesAsync();
-            return CreatedAtRoute(nameof(GetCurrency), new {id = added.Entity.Id}, added.Entity);
+            return CreatedAtRoute("GetCurrency", new {id = added.Entity.Id}, added.Entity);
         }
         
         [HttpPut("api/currency")]
