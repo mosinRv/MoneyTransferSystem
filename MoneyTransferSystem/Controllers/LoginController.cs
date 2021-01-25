@@ -14,7 +14,6 @@ using MoneyTransferSystem.Database;
 
 namespace MoneyTransferSystem.Controllers
 {
-    [Route("api/login")]
     public class LoginController : Controller
     {
         private MyDbContext _db;
@@ -23,7 +22,7 @@ namespace MoneyTransferSystem.Controllers
             _db = db;
         }
 
-        [HttpPost("sign-in")]
+        [HttpPost("api/login/sign-in")]
         public async Task<IActionResult> LogIn(string login, string pass)
         {
             var user = _db.Users.FirstOrDefault(u=>u.Login==login);
@@ -41,14 +40,15 @@ namespace MoneyTransferSystem.Controllers
                     ClaimsIdentity.DefaultRoleClaimType)));
             return Ok();
         }
-        [HttpPost("sign-out")]
+        [HttpPost("api/login/sign-out")]
         public async Task<IActionResult> LogOut()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Ok(); //RedirectToAction()
         }
 
-        [HttpGet("test")]
+        [Authorize]
+        [HttpGet("api/login/test")]
         public IActionResult TestAuthorization()
         {
             var userId = User.Identity.Name;

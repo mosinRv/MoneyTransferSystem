@@ -10,32 +10,33 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoneyTransferSystem.Database;
 using MoneyTransferSystem.Database.DbModels;
+using MoneyTransferSystem.Models;
 using MoneyTransferSystem.Services;
 
 namespace MoneyTransferSystem.Controllers
 {
-    [Authorize(Roles = "Admin")]
     public class UserController : Controller
     {
         private readonly MyDbContext _context;
+        private const string AdminRole = "Admin";
+        private const string UserAdminRole = "User, Admin";
 
         public UserController(MyDbContext context)
         {
             _context = context;
         }
         
-        [HttpGet("api/user")]
-        public async Task<JsonResult> GetUsers(int count=10, int page=1)
+        [HttpGet("api/user"), Authorize(Roles = UserAdminRole)]
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers(int count=10, int page=1)
         {
             var users = await _context.Users.Skip(count*(page-1)).Take(count)
                 .Include(u => u.Accounts)
                 .ThenInclude(a => a.Currency)
-                .Select(u => new
+                .Select(u => new UserDto
                 {
-                    Id = u.Id,
-                    Login = u.Login,
+                    User = u.Login,
                     Role = u.isAdmin ? "Admin" : "User",
-                    Accounts = u.Accounts.Select(a => new
+                    Accounts = u.Accounts.Select(a => new AccountDto()
                     {
                         Id = a.Id,
                         CurrencyId = a.CurrencyId,
@@ -43,32 +44,34 @@ namespace MoneyTransferSystem.Controllers
                         Money = a.Money
                     })
                 }).ToListAsync();
-            return Json(users);
+            return users;
         }
         
+        [Authorize(Roles = UserAdminRole)]
         [HttpGet("api/user/{id}", Name = "GetUser")]
-        public async Task<IActionResult> GetUser(int id)
+        public async Task<ActionResult<UserDto>> GetUser(int id)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            var user = await _context.Users.Where(u => u.Id == id)
+                .Include(u => u.Accounts)
+                .Select(u=>new UserDto
+                {
+                    User = u.Login,
+                    Role = u.isAdmin ? "Admin" : "User",
+                    Accounts = u.Accounts.Select(a => new AccountDto()
+                    {
+                        Id = a.Id,
+                        CurrencyId = a.CurrencyId,
+                        Currency = a.Currency.CharCode,
+                        Money = a.Money
+                    })
+                }).FirstOrDefaultAsync();
             if (user== null)
                 return NotFound();
-            await _context.Entry(user).Collection(u => u.Accounts).LoadAsync();
-            var result = new
-            {
-                Id = user.Id,
-                Login = user.Login,
-                Role = user.isAdmin ? "Admin" : "User",
-                Accounts = user.Accounts.Select(a => new
-                {
-                    Id = a.Id,
-                    CurrencyId = a.CurrencyId,
-                    Currency = a.Currency.CharCode,
-                    Money = a.Money
-                })
-            };
-            return Json(result);
+            
+            return user;
         }
-        [HttpPost("api/user")]
+        
+        [HttpPost("api/user"), Authorize(Roles = AdminRole)]
         public async Task<IActionResult> CreateUser([FromBody]User user)
         {
             try

@@ -34,7 +34,16 @@ namespace MoneyTransferSystem
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
-                    options.LoginPath = new PathString("/Login/UserLogin");//TODO change login path
+                    options.Events.OnRedirectToLogin = redirectContext =>
+                    {
+                        redirectContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    };
+                    options.Events.OnRedirectToAccessDenied = redirectContext =>
+                    {
+                        redirectContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return Task.CompletedTask;
+                    };
                 });
             services.AddAuthorization();
             services.AddRazorPages();
@@ -65,7 +74,7 @@ namespace MoneyTransferSystem
             {
                 x.MapGet("/", async context =>
                 {
-                    await context.Response.WriteAsync("🎄 🎄 Hello 🎄 🎄");
+                    await context.Response.WriteAsync("Hello");
                 });
                 x.MapControllers();
             });

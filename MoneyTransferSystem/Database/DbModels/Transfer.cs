@@ -18,7 +18,8 @@ namespace MoneyTransferSystem.Database.DbModels
 
     public enum TransferType
     {
-        Transfer,
+        TransferFrom,
+        TransferTo,
         Deposit,
         Withdrawal
     }
