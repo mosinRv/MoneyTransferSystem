@@ -5,50 +5,50 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 using MoneyTransferSystem.Database.DbModels;
+using MoneyTransferSystem.Models;
+using Newtonsoft.Json;
 using NUnit.Framework;
 
 namespace MoneyTransferSystem.Tests
 {
     public class UserTests: MyTestBase
     {
-        
+        public override async Task Init()
+        {
+            await base.Init();
+            UserClient = CreateAuthorizedClientAsync("TestUser", "123").GetAwaiter().GetResult();
+            AdminClient = CreateAuthorizedClientAsync("TestAdmin", "123").GetAwaiter().GetResult();
+
+        }
         
         [Test]
-        public void GetUsers()
+        public async Task GetUsers()
         {
             // Arrange
             // Act
             HttpResponseMessage response =AdminClient.GetUsers().GetAwaiter().GetResult();
             
             // Assert
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-            // Assert.IsInstanceOf<List<User>>(response.Content);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode); 
+            var content = JsonConvert.DeserializeObject<IEnumerable<UserDto>>(await response.Content.ReadAsStringAsync());
+            Assert.IsNotNull(content);
         }
 
         [Test]
-        public void GetUserById()
+        public async Task GetUserById()
         {
             // Arrange
+            int id = TestUser1.Id;
             // Act
-            HttpResponseMessage response =AdminClient.GetUser(8).GetAwaiter().GetResult();
+            HttpResponseMessage response =AdminClient.GetUser(id).GetAwaiter().GetResult();
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK,response.StatusCode);
-            // Assert.IsInstanceOf<User>(response.Content);
-            // something with jsonconverter deserialize
+            var content = JsonConvert.DeserializeObject<UserDto>(await response.Content.ReadAsStringAsync());
+            Assert.IsNotNull(content);
+            Assert.AreEqual(TestUser1.Login, content.User);
         }
-        [Test]
-        public void GetNonExistentUserById()
-        {
-            // Arrange
-            const int nonExistentUserId = 10;
-            // Act
-            HttpResponseMessage response =AdminClient.GetUser(nonExistentUserId).GetAwaiter().GetResult();
-            
-            // Assert
-            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
-        }
-        
+
         [Test]
         public void CreateValidUser()
         {

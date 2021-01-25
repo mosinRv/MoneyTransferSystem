@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Net.Http.Headers;
 using MoneyTransferSystem.Database;
 using MoneyTransferSystem.Database.DbModels;
 using NUnit.Framework;
@@ -12,8 +15,15 @@ namespace MoneyTransferSystem.Tests
 {
     public class AccountTest : MyTestBase
     {
+        public override async Task Init()
+        {
+            await base.Init();
+            UserClient = CreateAuthorizedClientAsync("TestUser", "123").GetAwaiter().GetResult();
+        }
+        
+
         [Test]
-        public void GetCurrentUserInfo()
+        public void GetTestUserInfo()
         {
             // Arrange
             // Act
@@ -21,130 +31,117 @@ namespace MoneyTransferSystem.Tests
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            Assert.IsNotNull(response.Content);
+            var type = (response.Content.GetType());
+            
         }
 
         [Test]
-        public void GetAccounts()
+        public async Task WithdrawSuccessfully()
         {
             // Arrange
+            const decimal money = 10;
+            int accId = TestUser1.Accounts.First().Id;
+            decimal moneyShouldBeAfter = TestUser1.Accounts.First().Money - money;
+
             // Act
-            HttpResponseMessage response = AdminClient.GetAccounts().GetAwaiter().GetResult();
+            HttpResponseMessage response = UserClient.WithdrawMoney(accId, money).GetAwaiter().GetResult();
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        }
 
-        [Test]
-        public void GetAccountById()
-        {
-            // Arrange
-            int id;
-            using (var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>())
-            {
-                id = context.Accounts.Select(a => a.Id).FirstAsync().GetAwaiter().GetResult();
-            }
-
-            // Act
-            HttpResponseMessage response = AdminClient.GetAccountById(id).GetAwaiter().GetResult();
-
-            // Assert
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        }
-
-        [Test]
-        public void CreateAccount()
-        {
-            // Arrange
-            int userId;
-            int currencyId;
-            using (var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>())
-            {
-                userId = context.Users.Where(u => u.Login == "TestUser").Select(u => u.Id)
-                    .FirstAsync().GetAwaiter().GetResult();
-                currencyId = context.Currencies.Select(c => c.Id)
-                    .FirstAsync().GetAwaiter().GetResult();
-            }
-
-            Account acc = new Account
-            {
-                Money = 0,
-                CurrencyId = currencyId,
-                UserId = userId
-            };
-            // Act
-            HttpResponseMessage response = AdminClient.CreateAccount(acc).GetAwaiter().GetResult();
-
-            // Assert
-            Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
-        }
-        [Test]
-        public void TakeOrPutMoney()
-        {
-            // Arrange
-            int accId;
-            decimal money = 10;
-            using (var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>())
-            {
-                accId = context.Users.Where(u=>u.Login=="TestUser").Include(u=>u.Accounts)
-                    .Select(u=>u.Accounts).FirstAsync().GetAwaiter().GetResult()
-                    .Select(a=>a.Id).First();
-            }
-
-            // Act
-            HttpResponseMessage response = UserClient.TakeOrPutMoney(accId,money).GetAwaiter().GetResult();
-
-            // Assert
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>();
+            decimal moneyAfter = await context.Accounts.Where(a => a.Id == accId).Select(a => a.Money).FirstAsync();
+            
+            Assert.AreEqual(moneyShouldBeAfter, moneyAfter);
         }
         
         [Test]
-        public void TransferMoney()
+        public async Task WithdrawBiggerThanOnAccount()
         {
             // Arrange
-            int accId1, accId2;
-            decimal money = 10;
-            using (var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>())
-            {
-                accId1 = context.Users.Where(u=>u.Login=="TestUser").Include(u=>u.Accounts)
-                    .Select(u=>u.Accounts).FirstAsync().GetAwaiter().GetResult()
-                    .Select(a=>a.Id).First();
-                accId2 = context.Users.Where(u=>u.Login=="TestUser2").Include(u=>u.Accounts)
-                    .Select(u=>u.Accounts).FirstAsync().GetAwaiter().GetResult()
-                    .Select(a=>a.Id).First();
-            }
+            decimal money = TestUser1.Accounts.First().Money + 1;
+            int accId = TestUser1.Accounts.First().Id;
+            decimal moneyShouldBeAfter = TestUser1.Accounts.First().Money;
 
             // Act
-            HttpResponseMessage response = UserClient.TransferMoney(accId1,accId2,money).GetAwaiter().GetResult();
+            HttpResponseMessage response = UserClient.WithdrawMoney(accId, money).GetAwaiter().GetResult();
 
             // Assert
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+
+            var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>();
+            decimal moneyAfter = await context.Accounts.Where(a => a.Id == accId).Select(a => a.Money).FirstAsync();
+            
+            Assert.AreEqual(moneyShouldBeAfter, moneyAfter);
         }
+
         
         [Test]
-        public async Task ConfirmTransfer()
+        public async Task DepositSuccessfully()
         {
             // Arrange
-            int transferId;
-            using (var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>())
-            {
-                User testUser = await context.Users.Where(u => u.Login == "TestUser").Include(u => u.Accounts)
-                    .FirstAsync();
-                var transfer = new Transfer
-                {
-                    AccountId = testUser.Accounts.First().Id,
-                    Money = 100,
-                    Type = TransferType.Deposit
-                };
-                var tmp=context.Transfers.Add(transfer);
-                await context.SaveChangesAsync();
-                transferId = tmp.Entity.Id;
-            }
-        
+            const decimal money = 10;
+            int accId = TestUser1.Accounts.First().Id;
+            decimal moneyShouldBeAfter = TestUser1.Accounts.First().Money + money;
+
             // Act
-            HttpResponseMessage response = AdminClient.ConfirmTransfer(transferId, true).GetAwaiter().GetResult();
-        
+            HttpResponseMessage response = UserClient.DepositMoney(accId, money).GetAwaiter().GetResult();
+
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+
+            var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>();
+            decimal moneyAfter = await context.Accounts.Where(a => a.Id == accId).Select(a => a.Money).FirstAsync();
+
+            Assert.AreEqual(moneyShouldBeAfter, moneyAfter);
         }
+
+        [Test]
+        public async Task TransferSuccessfully_SameCurrency()
+        {
+            // Arrange
+            const decimal money = 10;
+            var accTo = TestUser2.Accounts.First();
+            var accFrom = TestUser1.Accounts.First(a=>a.CurrencyId==accTo.CurrencyId);
+
+            // Act
+            HttpResponseMessage response = UserClient.TransferMoney(accFrom.Id,accTo.Id, money).GetAwaiter().GetResult();
+
+            // Assert
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+
+            var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>();
+            decimal moneyFromAfter = await context.Accounts.Where(a => a.Id == accFrom.Id).Select(a => a.Money).FirstAsync();
+            decimal moneyToAfter = await context.Accounts.Where(a => a.Id == accTo.Id).Select(a => a.Money).FirstAsync();
+            
+
+            Assert.AreEqual(accFrom.Money - money, moneyFromAfter);
+            Assert.AreEqual(accTo.Money + money, moneyToAfter);
+        }
+
+        [Test]
+        public async Task TransferSuccessfully_DifferentCurrency()
+        {
+            // Arrange
+            const decimal money = 10;
+            var accTo = TestUser2.Accounts.First();
+            var accFrom = TestUser1.Accounts.First(a=>a.CurrencyId!=accTo.CurrencyId);
+
+            // Act
+            HttpResponseMessage response = UserClient.TransferMoney(accFrom.Id,accTo.Id, money).GetAwaiter().GetResult();
+
+            // Assert
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+
+            var context = Env.WebAppHost.Services.GetRequiredService<MyDbContext>();
+            decimal moneyFromAfter = await context.Accounts.Where(a => a.Id == accFrom.Id).Select(a => a.Money).FirstAsync();
+            decimal moneyToAfter = await context.Accounts.Where(a => a.Id == accTo.Id).Select(a => a.Money).FirstAsync();
+
+            Assert.AreEqual(accFrom.Money - money, moneyFromAfter);
+            Assert.IsTrue(accTo.Money < moneyToAfter);
+        }
+        
+        
     }
 }

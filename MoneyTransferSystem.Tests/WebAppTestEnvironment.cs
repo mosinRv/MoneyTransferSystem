@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using MoneyTransferSystem.Database;
 using MoneyTransferSystem.Database.DbModels;
@@ -12,9 +14,13 @@ namespace MoneyTransferSystem.Tests
 {
     public class WebAppTestEnvironment : IDisposable
     {
-        private MyDbContext _context;
+        // private MyDbContext _context;
         public WebAppTestHost WebAppHost { get; }
-        public object TestData;
+
+        private const string User1Name = "TestUser";
+        private const string User2Name = "TestUser2";
+        private const string AdminName = "TestAdmin";
+        
 
         public WebAppTestEnvironment()
         {
@@ -22,101 +28,87 @@ namespace MoneyTransferSystem.Tests
             
         }
 
-        public void Start()
+        public async Task Start()
         {
             WebAppHost.Start();
-            _context = WebAppHost.Services.GetRequiredService<MyDbContext>();
+            
+            await CreateUsers();
         }
 
-        public async Task Prepare()
-        {
-            await PrepareUsers();
-            await RemoveTestCreatedUser();
-
-        }
-
-        public void PrepareCommissions()
-        {
-            //TODO Add commissions into db
-        }
         public void Dispose()
         {
             WebAppHost?.Dispose();
         }
         
-        private async Task PrepareUsers()
+        private async Task CreateUsers()
         {
-            Currency usd = await _context.Currencies.FirstOrDefaultAsync(c => c.CharCode == "USD")
-                           ?? new Currency{Name="Dollar", CharCode = "USD"};
-            Currency rub = await _context.Currencies.FirstOrDefaultAsync(c => c.CharCode == "RUB")
-                           ?? new Currency{Name = "Ruble", CharCode = "RUB"};
-            usd.MaxTransferSize = 150;
-            rub.MaxTransferSize = 10000;
+            Dictionary<string, int> currenciesId = await FindOrCreateCurrencies();
+            int usdId = currenciesId["USD"];
+            int rubId = currenciesId["RUB"];
             
-            var user = new User
+            var testUser = new User
             {
-                Login = "TestUser", Pass = "123", isAdmin = false,
+                Login = User1Name, Pass = "123", isAdmin = false,
                 Accounts = new List<Account>
                 {
-                    new Account {Money = 1000, Currency = usd}
+                    new Account {Money = 1000, CurrencyId = usdId},
+                    new Account {Money = 1000, CurrencyId = rubId}
                 }
             };
-            User oldUser = await _context.Users.FirstOrDefaultAsync(u => u.Login == "TestUser");
-            if (oldUser == null)
-                _context.Users.Add(user);
-            else
+            var testUser2 = new User
             {
-                oldUser.Accounts = user.Accounts;
-                oldUser.isAdmin = user.isAdmin;
-                oldUser.Pass = user.Pass;
-                _context.Users.Update(oldUser);
-            }
-            
-            var user2 = new User
-            {
-                Login = "TestUser2", Pass = "123", isAdmin = false,
+                Login = User2Name, Pass = "123", isAdmin = false,
                 Accounts = new List<Account>
                 {
-                    new Account {Money = 1000, Currency = usd},
-                    new Account {Money = 1000, Currency = rub}
+                    new Account {Money = 1000, CurrencyId = usdId},
                 }
             };
-            User oldUser2 = await _context.Users.FirstOrDefaultAsync(u => u.Login == "TestUser");
-            if (oldUser2 == null)
-                _context.Users.Add(user2);
-            else
-            {
-                oldUser2.Accounts = user2.Accounts;
-                oldUser2.isAdmin = user2.isAdmin;
-                oldUser2.Pass = user2.Pass;
-                _context.Users.Update(oldUser2);
-            }
-            
-            var admin = new User {Login = "TestAdmin", Pass = "123", isAdmin = true};
-            User oldAdmin = await _context.Users.FirstOrDefaultAsync(u => u.Login == "TestAdmin");
-            if (oldAdmin == null)
-                _context.Users.Add(admin);
-            else
-            {
-                oldAdmin.Pass = admin.Pass;
-                oldAdmin.isAdmin = admin.isAdmin;
-                _context.Users.Update(oldAdmin);
-            }
-            
-            await _context.SaveChangesAsync();
-        }
+            var testAdmin = new User {Login = AdminName, Pass = "123", isAdmin = true};
 
-        private async Task RemoveTestCreatedUser()
+            var context= WebAppHost.Services.GetRequiredService<MyDbContext>();
+            context.Users.AddRange(testAdmin, testUser, testUser2);
+            await context.SaveChangesAsync();
+        }
+        public async Task<Dictionary<string, int>> FindOrCreateCurrencies()
         {
-            User user = await _context.Users.FirstOrDefaultAsync(u => u.Login == "ValidUser");
-            if (user != null)
+            // If currency dont exist, there will be created test currencies, and after the tests they will be deleted
+            var context= WebAppHost.Services.GetRequiredService<MyDbContext>();
+            Currency usd = await context.Currencies.FirstOrDefaultAsync(c => c.CharCode == "USD");
+            Currency rub = await context.Currencies.FirstOrDefaultAsync(c => c.CharCode == "RUB");
+            
+            if (usd == null || rub == null)
             {
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
+                EntityEntry<Currency> tmpUsd = null, tmpRub = null;
+                if (usd == null)
+                    tmpUsd = context.Currencies.Add(new Currency
+                        {Name = "TestDollar", CharCode = "USD", MaxTransferSize = 150});
+                if (rub == null)
+                    tmpRub = context.Currencies.Add(new Currency
+                        {Name = "TestRuble", CharCode = "RUB", MaxTransferSize = 10000});
+                await context.SaveChangesAsync();
+                usd ??= tmpUsd.Entity;
+                rub ??= tmpRub.Entity;
             }
+            
+            return new Dictionary<string, int>(){{"USD", usd.Id}, {"RUB", rub.Id}};
         }
 
-        
+        public async Task DeleteTestUsers()
+        {
+            var context= WebAppHost.Services.GetRequiredService<MyDbContext>();
+            Currency usdTest = await context.Currencies.FirstOrDefaultAsync(c => c.Name == "TestDollar");
+            Currency rubTest = await context.Currencies.FirstOrDefaultAsync(c => c.Name == "TestRuble");
+            User testUser = await context.Users.FirstOrDefaultAsync(u => u.Login == User1Name);
+            User testUser2 = await context.Users.FirstOrDefaultAsync(u => u.Login == User2Name);
+            User testAdmin = await context.Users.FirstOrDefaultAsync(u => u.Login == AdminName);
+            
+            context.Users.RemoveRange(testUser, testUser2, testAdmin);
+            if (usdTest != null) context.Currencies.Remove(usdTest);
+            if (rubTest != null) context.Currencies.Remove(rubTest);
+            await context.SaveChangesAsync();
+        }
+
+
 
     }
 }

@@ -36,34 +36,41 @@ namespace MoneyTransferSystem.Tests
 
         #region Account
 
+        // User role
         public static async Task<HttpResponseMessage> GetCurrentUserInfo(this HttpClient client) => 
-            await client.GetAsync("api/account/my-accounts");
+            await client.GetAsync("api/account");
         
-        public static async Task<HttpResponseMessage> GetAccounts(this HttpClient client, int count=10) => 
-            await client.GetAsync($"api/account/?count={count}");
-        
-        public static async Task<HttpResponseMessage> GetAccountById(this HttpClient client, int id) => 
-            await client.GetAsync($"api/account/{id}");
-        
-        public static async Task<HttpResponseMessage> CreateAccount(this HttpClient client, Account newAccount)
+        public static async Task<HttpResponseMessage> WithdrawMoney(this HttpClient client, int accId, decimal money)
         {
-            string accJson = JsonConvert.SerializeObject(newAccount);
-            return await client.PostAsync($"api/account", new StringContent(accJson, Encoding.UTF8, "application/json"));
+            return await client.PostAsync($"api/account/withdraw/?accId={accId}&money={money}", null);
         }
         
-        public static async Task<HttpResponseMessage> TakeOrPutMoney(this HttpClient client, int accId, decimal money)
+        public static async Task<HttpResponseMessage> DepositMoney(this HttpClient client, int accId, decimal money)
         {
-            return await client.PostAsync($"api/account/money/?accId={accId}&money={money}", null);
+            return await client.PostAsync($"api/account/deposit/?accId={accId}&money={money}", null);
         }
         
         public static async Task<HttpResponseMessage> TransferMoney(this HttpClient client, int fromId, int toId, decimal money)
         {
-            return await client.PostAsync($"api/account/transfer/?fromId={fromId}&toId={toId}&money={money}", null);
+            return await client.PostAsync($"api/account/transfer/?fromId={fromId}&toId={toId}&money={decimal.Round(money)}", null);
         }
         
+        // Admin role
+        public static async Task<HttpResponseMessage> GetAccounts(this HttpClient client) => 
+            await client.GetAsync($"api/admin/account");
+        
+        public static async Task<HttpResponseMessage> GetAccountById(this HttpClient client, int id) => 
+            await client.GetAsync($"api/admin/account/{id}");
+        
+        public static async Task<HttpResponseMessage> CreateAccount(this HttpClient client, Account newAccount)
+        {
+            string accJson = JsonConvert.SerializeObject(newAccount);
+            return await client.PostAsync($"api/admin/account", new StringContent(accJson, Encoding.UTF8, "application/json"));
+        }
+
         public static async Task<HttpResponseMessage> ConfirmTransfer(this HttpClient client, int id, bool confirmed)
         {
-            return await client.PostAsync($"api/account/confirmation/?id={id}&confirmed={confirmed}", null);
+            return await client.PostAsync($"api/admin/account/transfer-confirmation/?id={id}&isConfirmed={confirmed}", null);
         }
 
         #endregion
@@ -92,6 +99,10 @@ namespace MoneyTransferSystem.Tests
             string currJson = JsonConvert.SerializeObject(currency);
             return await client.PutAsync($"api/currency/?id={id}", new StringContent(currJson, Encoding.UTF8, "application/json"));
         }
+        public static async Task<HttpResponseMessage> DeleteCurrency(this HttpClient client, int id)
+        {
+            return await client.DeleteAsync($"api/currency/?id={id}");
+        } 
         #endregion
 
         #region Commission
