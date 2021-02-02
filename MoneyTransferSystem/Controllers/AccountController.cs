@@ -64,17 +64,17 @@ namespace MoneyTransferSystem.Controllers
                     "There are not enough funds on the account for the withdrawal, taking into consideration the fee");
 
             
-            bool? isApproved = moneyToTake > acc.Currency.MaxTransferSize ? (bool?) null : true;
-            if (isApproved == true)
+            TransferStatus status = moneyToTake > acc.Currency.MaxTransferSize ? TransferStatus.Pending : TransferStatus.Approved;
+            if (status == TransferStatus.Approved)
                 acc.Money -= moneyToTake;
-            // TODO Check is update needed here  or not
+            
             
             var transfer= new Transfer 
             {
                 AccountId = accId, 
                 Money = moneyToTake,
                 Type = TransferType.Withdrawal,
-                isApproved = isApproved
+                Status = status
             };
             await _context.Transfers.AddAsync(transfer);
             
@@ -97,8 +97,8 @@ namespace MoneyTransferSystem.Controllers
             decimal depositMoney = money - commission;
             if (depositMoney <= 0) return BadRequest("value of money must be greater than zero after taking the commission");
             
-            bool? isApproved = depositMoney > acc.Currency.MaxTransferSize ? (bool?) null : true;
-            if (isApproved == true)
+            TransferStatus status = depositMoney > acc.Currency.MaxTransferSize ? TransferStatus.Pending : TransferStatus.Approved;
+            if (status == TransferStatus.Approved)
                 acc.Money += depositMoney;
             
             var transfer= new Transfer 
@@ -106,7 +106,7 @@ namespace MoneyTransferSystem.Controllers
                 AccountId = accId, 
                 Money = depositMoney,
                 Type = TransferType.Deposit,
-                isApproved = isApproved
+                Status = status
             };
             await _context.Transfers.AddAsync(transfer);
             await _context.SaveChangesAsync();
@@ -141,15 +141,16 @@ namespace MoneyTransferSystem.Controllers
                 accFrom.Currency.MaxTransferSize != 0 && moneyToTake > accFrom.Currency.MaxTransferSize;
             bool needConfirmToReceive =
                 accTo.Currency.MaxTransferSize != 0 && moneyToReceive > accTo.Currency.MaxTransferSize;
-            bool? isApproved = (needConfirmToReceive && needConfirmToTake) ? (bool?) null : true;
-            
+            TransferStatus status = (needConfirmToReceive && needConfirmToTake) 
+                ? TransferStatus.Pending : TransferStatus.Approved;
+
             // the sender's money will be frozen and will awaits confirmation
             accFrom.Money -= moneyToTake;
-            if (isApproved==true)
+            if (status == TransferStatus.Approved)
                 accTo.Money += moneyToReceive;
             
-            var sending = new Transfer {AccountId = fromId, Money = moneyToTake, Type = TransferType.TransferFrom, isApproved = isApproved};
-            var delivery = new Transfer {AccountId = toId, Money = moneyToReceive, Type = TransferType.TransferTo, isApproved = isApproved};
+            var sending = new Transfer {AccountId = fromId, Money = moneyToTake, Type = TransferType.TransferFrom, Status = status};
+            var delivery = new Transfer {AccountId = toId, Money = moneyToReceive, Type = TransferType.TransferTo, Status = status};
             
             _context.Accounts.UpdateRange(accFrom,accTo);
             await _context.Transfers.AddRangeAsync(sending,delivery);

@@ -55,7 +55,7 @@ namespace MoneyTransferSystem.Controllers
         [HttpPost("api/admin/account/transfer-confirmation")]
         public async Task<IActionResult> ConfirmTransfer(int id, bool isConfirmed)
         {
-            Transfer transfer = await _context.Transfers.Where(t => t.Id == id && t.isApproved == null)
+            Transfer transfer = await _context.Transfers.Where(t => t.Id == id && t.Status==TransferStatus.Pending)
                 .Include(t => t.Account).FirstOrDefaultAsync();
             if (transfer == null) return NotFound();
             
@@ -75,7 +75,8 @@ namespace MoneyTransferSystem.Controllers
                     transfer.Account.Money += transfer.Money;
                     break;
             }
-            transfer.isApproved = isConfirmed;
+
+            transfer.Status = isConfirmed ? TransferStatus.Approved : TransferStatus.Declined;
             await _context.SaveChangesAsync();
             return Ok();
         }
@@ -96,7 +97,7 @@ namespace MoneyTransferSystem.Controllers
                 AccountId = accId, 
                 Money = money,
                 Type = TransferType.Withdrawal,
-                isApproved = true
+                Status = TransferStatus.Approved
             };
             await _context.Transfers.AddAsync(transfer);
             
@@ -120,7 +121,7 @@ namespace MoneyTransferSystem.Controllers
                 AccountId = accId, 
                 Money = money,
                 Type = TransferType.Deposit,
-                isApproved = true
+                Status = TransferStatus.Approved
             };
             await _context.Transfers.AddAsync(transfer);
             await _context.SaveChangesAsync();

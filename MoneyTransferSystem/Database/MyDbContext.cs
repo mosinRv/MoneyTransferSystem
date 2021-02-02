@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using MoneyTransferSystem.Database.DbModels;
 using MoneyTransferSystem.Helpers;
 
@@ -30,15 +31,15 @@ namespace MoneyTransferSystem.Database
 
             builder.Entity<User>()
                 .HasIndex(x => x.Login).IsUnique();
-           
-            builder.Entity<Transfer>()
-                .Property(t => t.Type)
-                .HasConversion(
-                    type => type.ToString(),
-                    type => (TransferType) Enum.Parse(typeof(TransferType), type));
-            
+
+            builder.Entity<Transfer>(modelBuilder =>
+            {
+                modelBuilder.Property(t => t.Type)
+                    .HasConversion<string>();
+                modelBuilder.Property(t => t.Status)
+                    .HasConversion<string>();
+            });
         }
-        
-        
+
     }
 }

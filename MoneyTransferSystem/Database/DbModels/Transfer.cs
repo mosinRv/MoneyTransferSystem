@@ -9,7 +9,8 @@ namespace MoneyTransferSystem.Database.DbModels
         public decimal Money { get; set; }
         [Required]
         public TransferType Type { get; set; }
-        public bool? isApproved { get; set; }
+        [Required]
+        public TransferStatus Status { get; set; }
         
         [Required]
         public int AccountId { get; set; }
@@ -22,5 +23,12 @@ namespace MoneyTransferSystem.Database.DbModels
         TransferTo,
         Deposit,
         Withdrawal
+    }
+
+    public enum TransferStatus
+    {
+        Approved,
+        Declined,
+        Pending
     }
 }
